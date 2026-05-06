@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-// buildgym olan importları kendi proje yapına göre (workify) kontrol etmeyi unutma
 import 'package:buildgym/screens/main_screen/admin_main_screen.dart';
 import 'worker_main_screen.dart';
 import 'root_main_screen.dart';
