@@ -21,14 +21,11 @@ class WorkerDetailScreen extends StatefulWidget {
 class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
   // SİLME FONKSİYONU
   Future<void> _deleteWorker(String workerName) async {
+    final theme = Theme.of(context);
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text(
-          "Personeli Sil",
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text("Personeli Sil"),
         content: Text(
           "$workerName sistemden tamamen silinecektir. Emin misiniz?",
         ),
@@ -47,13 +44,11 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
 
     if (confirm == true) {
       try {
-        // 1. Workers koleksiyonundan sil
         await FirebaseFirestore.instance
             .collection('workers')
             .doc(widget.workerId)
             .delete();
 
-        // 2. Business altındaki şube listesinden ismini kaldır
         await FirebaseFirestore.instance
             .collection('business')
             .doc(widget.firmaKey)
@@ -63,32 +58,40 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
               ]),
             });
 
-        // 3. Log kaydı
         await FirebaseFirestore.instance.collection('logs').add({
           'action': "$workerName personeli admin tarafından silindi.",
           'business_id': widget.firmaKey,
           'timestamp': FieldValue.serverTimestamp(),
         });
 
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Personel başarıyla silindi")),
-        );
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Personel başarıyla silindi")),
+          );
+        }
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Hata: $e")));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("Hata: $e")));
+        }
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("Personel Detayları", style: TextStyle(fontSize: 16)),
-        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          "Personel Detayları",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        centerTitle: true,
         elevation: 0,
       ),
       body: StreamBuilder<DocumentSnapshot>(
@@ -98,7 +101,11 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            );
           }
           if (!snapshot.data!.exists) {
             return const Center(child: Text("Veri bulunamadı."));
@@ -110,29 +117,51 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                _infoCard("Ad Soyad", worker['name_surname'], Icons.person),
+                _infoCard(
+                  "Ad Soyad",
+                  worker['name_surname'],
+                  Icons.person,
+                  context,
+                ),
                 _infoCard(
                   "Kullanıcı Adı",
                   worker['username'],
                   Icons.alternate_email,
+                  context,
                 ),
-                _infoCard("E-posta", worker['email'], Icons.email_outlined),
-                _infoCard("Şifre", worker['password'], Icons.lock_outline),
+                _infoCard(
+                  "E-posta",
+                  worker['email'] ?? "-",
+                  Icons.email_outlined,
+                  context,
+                ),
+                _infoCard(
+                  "Şifre",
+                  worker['password'],
+                  Icons.lock_outline,
+                  context,
+                ),
                 _infoCard(
                   "Yetki Rolü",
                   worker['role']?.toUpperCase() ?? "STAFF",
                   Icons.admin_panel_settings,
+                  context,
                 ),
 
                 const Spacer(),
 
-                // DÜZENLE BUTONU
+                // DÜZENLE BUTONU (Koyu Mavi Standardı)
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 55,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueAccent,
+                      backgroundColor: theme.colorScheme.primary,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      elevation: 0,
                     ),
                     onPressed: () {
                       Navigator.push(
@@ -146,10 +175,10 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                         ),
                       );
                     },
-                    icon: const Icon(Icons.edit, color: Colors.white),
+                    icon: const Icon(Icons.edit),
                     label: const Text(
                       "PERSONELİ DÜZENLE",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ),
                 ),
@@ -159,15 +188,21 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
                 // SİL BUTONU
                 SizedBox(
                   width: double.infinity,
-                  height: 50,
+                  height: 55,
                   child: OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.redAccent,
                       side: const BorderSide(color: Colors.redAccent),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
                     onPressed: () => _deleteWorker(worker['name_surname']),
                     icon: const Icon(Icons.delete_forever),
-                    label: const Text("PERSONELİ SİSTEMDEN SİL"),
+                    label: const Text(
+                      "PERSONELİ SİSTEMDEN SİL",
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
                   ),
                 ),
               ],
@@ -178,21 +213,34 @@ class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
     );
   }
 
-  Widget _infoCard(String label, String value, IconData icon) {
+  Widget _infoCard(
+    String label,
+    String value,
+    IconData icon,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
     return Card(
-      color: const Color(0xFF1E293B),
+      elevation: 0,
       margin: const EdgeInsets.only(bottom: 10),
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
       child: ListTile(
-        leading: Icon(icon, color: Colors.blueAccent, size: 20),
+        leading: Icon(icon, color: theme.colorScheme.primary, size: 22),
         title: Text(
           label,
-          style: const TextStyle(color: Colors.white38, fontSize: 11),
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         subtitle: Text(
           value,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: theme.textTheme.bodyLarge?.color,
             fontWeight: FontWeight.bold,
+            fontSize: 15,
           ),
         ),
       ),

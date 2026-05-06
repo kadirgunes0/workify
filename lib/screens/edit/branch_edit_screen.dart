@@ -48,7 +48,7 @@ class _BranchEditScreenState extends State<BranchEditScreen> {
       double lat = double.parse(parts[0].trim());
       double lon = double.parse(parts[1].trim());
 
-      // Eğer isim değiştiyse, eski kaydı silip yenisini oluşturmamız gerekir (Firebase Map yapısı gereği)
+      // Eğer isim değiştiyse, eski kaydı silip yenisini oluşturuyoruz
       if (_nameController.text.trim() != widget.branchName) {
         await FirebaseFirestore.instance
             .collection('business')
@@ -69,34 +69,47 @@ class _BranchEditScreenState extends State<BranchEditScreen> {
             },
           });
 
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Şube güncellendi"),
-          backgroundColor: Colors.green,
-        ),
-      );
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Şube başarıyla güncellendi"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Güncelleme hatası!"),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Güncelleme sırasında bir hata oluştu!"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("Şubeyi Düzenle", style: TextStyle(fontSize: 16)),
-        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          "Şubeyi Düzenle",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        centerTitle: true,
+        elevation: 0,
         actions: [
           IconButton(
             onPressed: _updateBranch,
-            icon: const Icon(Icons.check, color: Colors.greenAccent),
+            icon: const Icon(
+              Icons.check_circle_outline,
+              color: Colors.greenAccent,
+            ),
           ),
         ],
       ),
@@ -104,20 +117,39 @@ class _BranchEditScreenState extends State<BranchEditScreen> {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _editField(_nameController, "Şube Adı", Icons.store),
+            _editField(_nameController, "Şube Adı", Icons.store, context),
             const SizedBox(height: 15),
-            _editField(_addressController, "Adres Tarifi", Icons.description),
+            _editField(
+              _addressController,
+              "Adres Tarifi",
+              Icons.description,
+              context,
+            ),
             const SizedBox(height: 15),
-            _editField(_coordsController, "Koordinatlar (Lat, Lon)", Icons.map),
+            _editField(
+              _coordsController,
+              "Koordinatlar (Lat, Lon)",
+              Icons.map,
+              context,
+            ),
             const SizedBox(height: 20),
+
+            // Harita Konteynırı
             Container(
-              height: 250,
+              height: 300,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.white10),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(15),
+                borderRadius: BorderRadius.circular(20),
                 child: FlutterMap(
                   mapController: _mapController,
                   options: MapOptions(
@@ -134,26 +166,49 @@ class _BranchEditScreenState extends State<BranchEditScreen> {
                   children: [
                     TileLayer(
                       urlTemplate:
-                          'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', // Daha hızlı sunucu
+                          'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
                       subdomains: const ['a', 'b', 'c'],
-                      userAgentPackageName:
-                          'com.kadir.buildgym', // Burası senin paket adın olmalı
+                      userAgentPackageName: 'com.kadir.workify',
                     ),
                     MarkerLayer(
                       markers: [
                         Marker(
                           point: _currentLocation,
-                          width: 40,
-                          height: 40,
-                          child: const Icon(
+                          width: 50,
+                          height: 50,
+                          child: Icon(
                             Icons.location_on,
-                            color: Colors.red,
-                            size: 40,
+                            color: theme
+                                .colorScheme
+                                .primary, // Senin koyu mavi tonun
+                            size: 45,
                           ),
                         ),
                       ],
                     ),
                   ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 30),
+
+            // Kaydet Butonu (Alternatif erişim)
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: _updateBranch,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: theme.colorScheme.primary, // Koyu Mavi Buton
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
+                ),
+                child: const Text(
+                  "GÜNCELLEMEYİ KAYDET",
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
@@ -163,19 +218,30 @@ class _BranchEditScreenState extends State<BranchEditScreen> {
     );
   }
 
-  Widget _editField(TextEditingController c, String l, IconData i) => TextField(
-    controller: c,
-    style: const TextStyle(color: Colors.white),
-    decoration: InputDecoration(
-      labelText: l,
-      labelStyle: const TextStyle(color: Colors.white38),
-      prefixIcon: Icon(i, color: Colors.blueAccent),
-      filled: true,
-      fillColor: const Color(0xFF1E293B),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide.none,
+  Widget _editField(
+    TextEditingController c,
+    String l,
+    IconData i,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    return TextField(
+      controller: c,
+      style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+      decoration: InputDecoration(
+        labelText: l,
+        prefixIcon: Icon(i, color: theme.colorScheme.primary),
+        filled: true,
+        fillColor: theme.cardColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
+        ),
       ),
-    ),
-  );
+    );
+  }
 }

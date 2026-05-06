@@ -1,7 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:device_info_plus/device_info_plus.dart'; // YENİ EKLENDİ
+import 'package:device_info_plus/device_info_plus.dart';
+// buildgym olan importları kendi proje yapına göre (workify) kontrol etmeyi unutma
 import 'package:buildgym/screens/main_screen/admin_main_screen.dart';
 import 'worker_main_screen.dart';
 import 'root_main_screen.dart';
@@ -26,16 +27,15 @@ class _LoginPageState extends State<LoginPage>
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  // --- YENİ: CİHAZ KİMLİĞİ ALMA FONKSİYONU ---
   Future<String?> _getDeviceId() async {
     var deviceInfo = DeviceInfoPlugin();
     try {
       if (Platform.isIOS) {
         var iosDeviceInfo = await deviceInfo.iosInfo;
-        return iosDeviceInfo.identifierForVendor; // iOS için benzersiz kimlik
+        return iosDeviceInfo.identifierForVendor;
       } else if (Platform.isAndroid) {
         var androidDeviceInfo = await deviceInfo.androidInfo;
-        return androidDeviceInfo.id; // Android için benzersiz kimlik
+        return androidDeviceInfo.id;
       }
     } catch (e) {
       debugPrint("Cihaz kimliği okunamadı: $e");
@@ -43,7 +43,6 @@ class _LoginPageState extends State<LoginPage>
     return null;
   }
 
-  // --- GİRİŞ MANTIĞI ---
   Future<void> _handleLogin() async {
     final String username = _userController.text.trim();
     final String password = _passController.text.trim();
@@ -57,7 +56,6 @@ class _LoginPageState extends State<LoginPage>
 
     try {
       if (_tabController.index == 0) {
-        // --- YÖNETİCİ / ROOT GİRİŞİ (Cihaz kısıtlaması yok) ---
         QuerySnapshot adminQuery = await FirebaseFirestore.instance
             .collection('admins')
             .where('username', isEqualTo: username)
@@ -94,7 +92,6 @@ class _LoginPageState extends State<LoginPage>
           _showError("Yönetici bilgileri hatalı.");
         }
       } else {
-        // --- PERSONEL GİRİŞİ (CİHAZ KİLİDİ BURADA) ---
         QuerySnapshot staffQuery = await FirebaseFirestore.instance
             .collection('workers')
             .where('username', isEqualTo: username)
@@ -104,9 +101,8 @@ class _LoginPageState extends State<LoginPage>
         if (staffQuery.docs.isNotEmpty) {
           var doc = staffQuery.docs.first;
           var data = doc.data() as Map<String, dynamic>;
-          String workerDocId = doc.id; // Güncelleme yapmak için belgenin ID'si
+          String workerDocId = doc.id;
 
-          // 1. O anki cihazın kimliğini al
           String? currentDeviceId = await _getDeviceId();
 
           if (currentDeviceId == null) {
@@ -115,25 +111,19 @@ class _LoginPageState extends State<LoginPage>
             return;
           }
 
-          // 2. Veritabanındaki kayıtlı cihaz kimliğine bak
           String? registeredDeviceId = data['device_id'];
 
           if (registeredDeviceId == null || registeredDeviceId.isEmpty) {
-            // İLK GİRİŞ: Cihazı veritabanına kaydet
             await FirebaseFirestore.instance
                 .collection('workers')
                 .doc(workerDocId)
                 .update({'device_id': currentDeviceId});
           } else if (registeredDeviceId != currentDeviceId) {
-            // FARKLI CİHAZ: Girişi engelle
-            _showError(
-              "Bu hesap başka bir cihaza kayıtlı. Lütfen yöneticinizle iletişime geçin.",
-            );
+            _showError("Bu hesap başka bir cihaza kayıtlı.");
             setState(() => _isLoading = false);
-            return; // FONKSİYONU BURADA KES, GİRİŞE İZİN VERME!
+            return;
           }
 
-          // Eşleşme başarılı veya ilk kayıt yapıldıysa içeri al
           String firmaKey = data['business_id'] ?? "";
 
           if (!mounted) return;
@@ -157,34 +147,35 @@ class _LoginPageState extends State<LoginPage>
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: Colors.redAccent,
-        duration: const Duration(seconds: 4),
-      ),
+      SnackBar(content: Text(msg), backgroundColor: Colors.redAccent),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Temaya göre dinamik renkleri buradan alıyoruz
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      // Arka plan rengini artık main.dart'taki ThemeData'dan alıyor
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(35),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(
+              Icon(
                 Icons.apartment_rounded,
                 size: 80,
-                color: Colors.blueAccent,
+                color: theme.colorScheme.primary, // Dinamik ana renk
               ),
               const SizedBox(height: 15),
-              const Text(
+              Text(
                 "WORKIFY",
                 style: TextStyle(
-                  color: Colors.white,
+                  // Yazı rengi temaya göre otomatik siyah veya beyaz olur
+                  color: theme.textTheme.headlineLarge?.color,
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 2,
@@ -193,10 +184,9 @@ class _LoginPageState extends State<LoginPage>
               const SizedBox(height: 40),
               TabBar(
                 controller: _tabController,
-                indicatorColor: Colors.blueAccent,
-                labelColor: Colors.blueAccent,
-                unselectedLabelColor: Colors.white30,
-                indicatorWeight: 3,
+                indicatorColor: theme.colorScheme.primary,
+                labelColor: theme.colorScheme.primary,
+                unselectedLabelColor: isDark ? Colors.white30 : Colors.black38,
                 tabs: const [
                   Tab(text: "YÖNETİCİ"),
                   Tab(text: "PERSONEL"),
@@ -205,41 +195,42 @@ class _LoginPageState extends State<LoginPage>
               const SizedBox(height: 30),
               TextField(
                 controller: _userController,
-                style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration(
                   "Kullanıcı Adı",
                   Icons.person_outline,
+                  context,
                 ),
               ),
               const SizedBox(height: 15),
               TextField(
                 controller: _passController,
                 obscureText: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration("Şifre", Icons.lock_outline),
+                decoration: _inputDecoration(
+                  "Şifre",
+                  Icons.lock_outline,
+                  context,
+                ),
               ),
               const SizedBox(height: 30),
               _isLoading
-                  ? const CircularProgressIndicator(color: Colors.blueAccent)
+                  ? CircularProgressIndicator(color: theme.colorScheme.primary)
                   : SizedBox(
                       width: double.infinity,
                       height: 55,
                       child: ElevatedButton(
                         onPressed: _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueAccent,
+                          backgroundColor: theme.colorScheme.primary,
+                          foregroundColor:
+                              Colors.white, // Buton üzerindeki yazı rengi
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15),
                           ),
-                          elevation: 5,
+                          elevation: 0,
                         ),
                         child: const Text(
                           "GİRİŞ YAP",
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: Colors.white,
-                          ),
+                          style: TextStyle(fontWeight: FontWeight.bold),
                         ),
                       ),
                     ),
@@ -250,20 +241,29 @@ class _LoginPageState extends State<LoginPage>
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  InputDecoration _inputDecoration(
+    String label,
+    IconData icon,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white30),
-      prefixIcon: Icon(icon, color: Colors.white30),
+      prefixIcon: Icon(icon),
       filled: true,
-      fillColor: Colors.white.withValues(alpha: 0.05),
+      // Temaya göre kutu iç rengini hafif gri/beyaz yapar
+      fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide.none,
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.white10),
+        borderSide: BorderSide(color: theme.dividerColor),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.blueAccent),
+        borderSide: BorderSide(color: theme.colorScheme.primary, width: 2),
       ),
     );
   }

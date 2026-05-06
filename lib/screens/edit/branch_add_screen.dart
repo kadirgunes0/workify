@@ -19,7 +19,7 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
   final MapController _mapController = MapController();
   LatLng _selectedLoc = const LatLng(40.8016, 29.4325); // Varsayılan: Gebze
 
- //saat ekleme kısmı
+  // Mesai saatleri
   TimeOfDay _workStart = const TimeOfDay(hour: 8, minute: 30);
   TimeOfDay _workEnd = const TimeOfDay(hour: 17, minute: 30);
   TimeOfDay _lunchStart = const TimeOfDay(hour: 12, minute: 30);
@@ -44,20 +44,28 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
         _mapController.move(_selectedLoc, 15.0);
       }
     } catch (e) {
-      // Hatalı format girilirse haritayı oynatma
+      // Hatalı formatta haritayı oynatma
     }
   }
 
-  //saat seçme yeri
   Future<void> _pickTime(
     BuildContext context,
     TimeOfDay initialTime,
     Function(TimeOfDay) onPicked,
   ) async {
+    final theme = Theme.of(context);
     final TimeOfDay? picked = await showTimePicker(
       context: context,
       initialTime: initialTime,
-      builder: (context, child) => Theme(data: ThemeData.dark(), child: child!),
+      builder: (context, child) => Theme(
+        // Saat seçiciyi uygulamanın genel temasına uyduruyoruz
+        data: theme.copyWith(
+          colorScheme: theme.colorScheme.copyWith(
+            primary: theme.colorScheme.primary,
+          ),
+        ),
+        child: child!,
+      ),
     );
     if (picked != null) {
       setState(() => onPicked(picked));
@@ -68,9 +76,11 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
-  //db save yeri saatler dahil 
   Future<void> _saveBranch() async {
-    if (_nameController.text.isEmpty) return;
+    if (_nameController.text.isEmpty) {
+      _showSnackBar("Lütfen şube adını girin!", isError: true);
+      return;
+    }
 
     try {
       String branchName = _nameController.text.trim();
@@ -85,7 +95,6 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
               'address': _addressController.text.trim(),
               'workers': [],
               'qr_data_giris': "${widget.firmaKey}_${branchName}_giris",
-              //saatin db de kaydedilcek ismi
               'work_start': _formatTime(_workStart),
               'work_end': _formatTime(_workEnd),
               'lunch_start': _formatTime(_lunchStart),
@@ -95,89 +104,73 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Şube başarıyla eklendi!"),
-            backgroundColor: Colors.green,
-          ),
-        );
+        _showSnackBar("Şube başarıyla eklendi!", isError: false);
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Hata: $e"), backgroundColor: Colors.red),
-        );
-      }
+      if (mounted) _showSnackBar("Hata: $e", isError: true);
     }
   }
 
-  // UI saat kutusu
-  Widget _buildTimeSelector(
-    String title,
-    TimeOfDay time,
-    Function(TimeOfDay) onPicked,
-  ) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(
-        title,
-        style: const TextStyle(color: Colors.white70, fontSize: 13),
-      ),
-      trailing: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF1E293B),
-        ),
-        onPressed: () => _pickTime(context, time, onPicked),
-        child: Text(
-          _formatTime(time),
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+  void _showSnackBar(String m, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(m),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("Yeni Şube Tanımla", style: TextStyle(fontSize: 16)),
-        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          "Yeni Şube Tanımla",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        centerTitle: true,
         elevation: 0,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            _buildInput(_nameController, "Şube Adı", Icons.store_rounded),
+            _buildInput(
+              _nameController,
+              "Şube Adı",
+              Icons.store_rounded,
+              context,
+            ),
             const SizedBox(height: 15),
             _buildInput(
               _addressController,
               "Açık Adres / Tarif",
               Icons.map_rounded,
+              context,
             ),
             const SizedBox(height: 15),
 
             TextField(
               controller: _coordsController,
               onChanged: _updateMapFromInput,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: _inputDecoration(
                 "Koordinatlar (Enlem, Boylam)",
                 Icons.location_searching_rounded,
+                context,
               ),
             ),
             const SizedBox(height: 20),
 
-            // İNTERAKTİF HARİTA
+            // HARİTA
             Container(
               height: 300,
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: Colors.white10),
+                border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(20),
@@ -198,7 +191,7 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
                     TileLayer(
                       urlTemplate:
                           'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.kadir.buildgym',
+                      userAgentPackageName: 'com.kadir.workify',
                     ),
                     MarkerLayer(
                       markers: [
@@ -206,9 +199,10 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
                           point: _selectedLoc,
                           width: 50,
                           height: 50,
-                          child: const Icon(
+                          child: Icon(
                             Icons.location_on,
-                            color: Colors.red,
+                            color:
+                                theme.colorScheme.primary, // Koyu Mavi Marker
                             size: 45,
                           ),
                         ),
@@ -221,36 +215,44 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
 
             const SizedBox(height: 30),
 
-            // saat menü
-            const Align(
+            // ÇALIŞMA SAATLERİ MENÜSÜ
+            Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 "ÇALIŞMA SAATLERİ",
                 style: TextStyle(
-                  color: Colors.blueAccent,
+                  color: theme.colorScheme.primary,
                   fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                  fontSize: 12,
                 ),
               ),
             ),
-            const Divider(color: Colors.white24),
+            Divider(color: theme.dividerColor.withOpacity(0.2)),
+
             _buildTimeSelector(
               "Mesai Başlangıç",
               _workStart,
               (t) => _workStart = t,
+              context,
             ),
-            _buildTimeSelector("Mesai Bitiş",
-             _workEnd,
-              (t) => _workEnd = t,
-              ),
             _buildTimeSelector(
-              "Öğle Arası Çıkış",
+              "Mesai Bitiş",
+              _workEnd,
+              (t) => _workEnd = t,
+              context,
+            ),
+            _buildTimeSelector(
+              "Öğle Arası Başlangıç",
               _lunchStart,
               (t) => _lunchStart = t,
+              context,
             ),
             _buildTimeSelector(
-              "Öğle Arası Dönüş",
+              "Öğle Arası Bitiş",
               _lunchEnd,
               (t) => _lunchEnd = t,
+              context,
             ),
 
             const SizedBox(height: 40),
@@ -261,48 +263,91 @@ class _BranchAddScreenState extends State<BranchAddScreen> {
               child: ElevatedButton(
                 onPressed: _saveBranch,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: theme.colorScheme.primary, // Koyu Mavi Buton
+                  foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   "ŞUBEYİ SİSTEME KAYDET",
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+                  style: TextStyle(fontWeight: FontWeight.bold),
                 ),
               ),
             ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInput(TextEditingController c, String l, IconData i) {
-    return TextField(
-      controller: c,
-      style: const TextStyle(color: Colors.white),
-      decoration: _inputDecoration(l, i),
+  Widget _buildTimeSelector(
+    String title,
+    TimeOfDay time,
+    Function(TimeOfDay) onPicked,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 8),
+      color: theme.cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        title: Text(title, style: const TextStyle(fontSize: 14)),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Text(
+            _formatTime(time),
+            style: TextStyle(
+              color: theme.textTheme.headlineLarge?.color,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        onTap: () => _pickTime(context, time, onPicked),
+      ),
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon) {
+  Widget _buildInput(
+    TextEditingController c,
+    String l,
+    IconData i,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    return TextField(
+      controller: c,
+      style: TextStyle(color: theme.textTheme.bodyLarge?.color),
+      decoration: _inputDecoration(l, i, context),
+    );
+  }
+
+  InputDecoration _inputDecoration(
+    String label,
+    IconData icon,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white30, fontSize: 13),
-      prefixIcon: Icon(icon, color: Colors.blueAccent, size: 20),
+      prefixIcon: Icon(icon, color: theme.colorScheme.primary),
       filled: true,
-      fillColor: Colors.white.withOpacity(0.05),
+      fillColor: theme.cardColor,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: BorderSide.none,
+      ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.white10),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Colors.blueAccent),
+        borderSide: BorderSide(color: theme.dividerColor.withOpacity(0.05)),
       ),
     );
   }

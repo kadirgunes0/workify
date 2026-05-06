@@ -17,24 +17,18 @@ class BranchDetailsScreen extends StatelessWidget {
     required this.branchName,
   });
 
-  // --- ŞUBEYE ÖZEL SABİT QR VERİSİ ---
-  // BranchDetailsScreen.dart içindeki ilgili kısım
   String _generateStaticQrData() {
-    // Alt tire yerine dik çizgi (|) kullanıyoruz
     String rawData = "$firmaKey|$branchName";
     return base64.encode(utf8.encode(rawData));
   }
 
-  // --- ŞUBE VE BAĞLI PERSONELLERİ SİLME ---
   Future<void> _deleteBranch(BuildContext context) async {
     bool? confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        title: const Text("Şubeyi Sil?", style: TextStyle(color: Colors.white)),
+        title: const Text("Şubeyi Sil?"),
         content: Text(
           "$branchName şubesi ve bağlı TÜM PERSONELLER silinecektir. Bu işlem geri alınamaz.",
-          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
@@ -62,6 +56,7 @@ class BranchDetailsScreen extends StatelessWidget {
             .where('business_id', isEqualTo: firmaKey)
             .where('branch_name', isEqualTo: branchName)
             .get();
+
         WriteBatch batch = FirebaseFirestore.instance.batch();
         for (var doc in workersQuery.docs) {
           batch.delete(doc.reference);
@@ -82,15 +77,17 @@ class BranchDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
         title: Text(
           branchName.toUpperCase(),
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
         ),
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: theme.appBarTheme.backgroundColor,
         centerTitle: true,
+        elevation: 0,
       ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
@@ -102,12 +99,7 @@ class BranchDetailsScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
           if (!snapshot.hasData || snapshot.data?.data() == null) {
-            return const Center(
-              child: Text(
-                "Veri bulunamadı",
-                style: TextStyle(color: Colors.white24),
-              ),
-            );
+            return const Center(child: Text("Veri bulunamadı"));
           }
 
           var bData = snapshot.data!.data() as Map<String, dynamic>;
@@ -115,17 +107,12 @@ class BranchDetailsScreen extends StatelessWidget {
           var currentBranch = branches?[branchName];
 
           if (currentBranch == null) {
-            return const Center(
-              child: Text(
-                "Şube bulunamadı.",
-                style: TextStyle(color: Colors.white24),
-              ),
-            );
+            return const Center(child: Text("Şube bulunamadı."));
           }
           List workers = currentBranch['workers'] ?? [];
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.only(bottom: 150),
+            padding: const EdgeInsets.only(bottom: 160),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -133,9 +120,9 @@ class BranchDetailsScreen extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(20),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1E293B),
-                    borderRadius: BorderRadius.vertical(
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: const BorderRadius.vertical(
                       bottom: Radius.circular(30),
                     ),
                   ),
@@ -145,26 +132,28 @@ class BranchDetailsScreen extends StatelessWidget {
                         Icons.map_rounded,
                         "Adres",
                         currentBranch['address'] ?? "Girilmemiş",
+                        context,
                       ),
                       const SizedBox(height: 12),
                       _infoItem(
                         Icons.people_alt_rounded,
                         "Kayıtlı Personel",
                         "${workers.length} Kişi",
+                        context,
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 30),
 
-                // 2. SABİT QR KOD PANELİ
+                // 2. QR KOD PANELİ
                 Center(
                   child: Column(
                     children: [
                       const Text(
                         "ŞUBE QR KODU",
                         style: TextStyle(
-                          color: Colors.white38,
+                          color: Colors.grey,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.5,
@@ -178,9 +167,11 @@ class BranchDetailsScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(20),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.blueAccent.withValues(alpha: 0.1),
-                              blurRadius: 20,
-                              spreadRadius: 5,
+                              color: theme.colorScheme.primary.withOpacity(
+                                0.15,
+                              ),
+                              blurRadius: 30,
+                              spreadRadius: 2,
                             ),
                           ],
                         ),
@@ -188,13 +179,12 @@ class BranchDetailsScreen extends StatelessWidget {
                           data: _generateStaticQrData(),
                           version: QrVersions.auto,
                           size: 180.0,
-                          gapless: false,
                         ),
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        "Giriş ve Çıkış işlemleri sistem tarafından otomatik algılanır",
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                        "Sistem giriş/çıkışı otomatik algılar",
+                        style: TextStyle(color: Colors.grey, fontSize: 11),
                       ),
                     ],
                   ),
@@ -205,10 +195,12 @@ class BranchDetailsScreen extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(
-                    height: 180,
+                    height: 200,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: Colors.white10),
+                      border: Border.all(
+                        color: theme.dividerColor.withOpacity(0.1),
+                      ),
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(20),
@@ -224,7 +216,7 @@ class BranchDetailsScreen extends StatelessWidget {
                           TileLayer(
                             urlTemplate:
                                 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-                            userAgentPackageName: 'com.kadir.buildgym',
+                            userAgentPackageName: 'com.kadir.workify',
                           ),
                           MarkerLayer(
                             markers: [
@@ -233,9 +225,11 @@ class BranchDetailsScreen extends StatelessWidget {
                                   currentBranch['lat'],
                                   currentBranch['lon'],
                                 ),
-                                child: const Icon(
+                                width: 50,
+                                height: 50,
+                                child: Icon(
                                   Icons.location_on,
-                                  color: Colors.red,
+                                  color: theme.colorScheme.primary,
                                   size: 40,
                                 ),
                               ),
@@ -257,7 +251,7 @@ class BranchDetailsScreen extends StatelessWidget {
                       const Text(
                         "KAYITLI PERSONELLER",
                         style: TextStyle(
-                          color: Colors.white38,
+                          color: Colors.grey,
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.2,
@@ -266,18 +260,21 @@ class BranchDetailsScreen extends StatelessWidget {
                       const SizedBox(height: 15),
                       if (workers.isEmpty)
                         const Center(
-                          child: Text(
-                            "Henüz personel eklenmemiş.",
-                            style: TextStyle(
-                              color: Colors.white12,
-                              fontSize: 13,
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 20),
+                            child: Text(
+                              "Henüz personel eklenmemiş.",
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                         )
                       else
-                        ...workers
-                            .map((wName) => _buildWorkerTile(context, wName))
-                            ,
+                        ...workers.map(
+                          (wName) => _buildWorkerTile(context, wName),
+                        ),
                     ],
                   ),
                 ),
@@ -286,16 +283,16 @@ class BranchDetailsScreen extends StatelessWidget {
           );
         },
       ),
-      // ALT BUTONLAR (Ekle/Sil)
+      // ALT BUTONLAR (Tema Uyumlu)
       bottomSheet: Container(
-        color: const Color(0xFF0F172A),
+        color: theme.scaffoldBackgroundColor,
         padding: const EdgeInsets.fromLTRB(20, 10, 20, 30),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 55,
               child: ElevatedButton.icon(
                 onPressed: () => Navigator.push(
                   context,
@@ -309,37 +306,37 @@ class BranchDetailsScreen extends StatelessWidget {
                 icon: const Icon(
                   Icons.person_add_alt_1_rounded,
                   color: Colors.white,
-                  size: 20,
                 ),
                 label: const Text(
                   "YENİ PERSONEL EKLE",
                   style: TextStyle(
-                    color: Colors.white,
                     fontWeight: FontWeight.bold,
+                    color: Colors.white,
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: theme.colorScheme.primary, // Koyu Mavi
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
+                  elevation: 0,
                 ),
               ),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 55,
               child: OutlinedButton.icon(
                 onPressed: () => _deleteBranch(context),
-                icon: const Icon(Icons.delete_forever_rounded, size: 20),
+                icon: const Icon(Icons.delete_forever_rounded),
                 label: const Text(
                   "ŞUBEYİ SİSTEMDEN SİL",
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: Colors.redAccent,
-                  side: const BorderSide(color: Colors.redAccent, width: 1),
+                  side: const BorderSide(color: Colors.redAccent),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
                   ),
@@ -352,10 +349,16 @@ class BranchDetailsScreen extends StatelessWidget {
     );
   }
 
-  Widget _infoItem(IconData icon, String title, String value) {
+  Widget _infoItem(
+    IconData icon,
+    String title,
+    String value,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(icon, color: Colors.blueAccent, size: 20),
+        Icon(icon, color: theme.colorScheme.primary, size: 20),
         const SizedBox(width: 15),
         Expanded(
           child: Column(
@@ -363,14 +366,13 @@ class BranchDetailsScreen extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(color: Colors.white38, fontSize: 10),
+                style: const TextStyle(color: Colors.grey, fontSize: 10),
               ),
               Text(
                 value,
                 style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
                   fontWeight: FontWeight.w500,
+                  fontSize: 14,
                 ),
               ),
             ],
@@ -381,25 +383,24 @@ class BranchDetailsScreen extends StatelessWidget {
   }
 
   Widget _buildWorkerTile(BuildContext context, String wName) {
+    final theme = Theme.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.05)),
       ),
       child: ListTile(
-        leading: const CircleAvatar(
-          backgroundColor: Colors.white10,
-          child: Icon(Icons.person, color: Colors.white60, size: 18),
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+          child: Icon(Icons.person, color: theme.colorScheme.primary, size: 18),
         ),
         title: Text(
           wName,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
-        trailing: const Icon(
-          Icons.chevron_right_rounded,
-          color: Colors.white12,
-        ),
+        trailing: const Icon(Icons.chevron_right_rounded, size: 20),
         onTap: () async {
           var query = await FirebaseFirestore.instance
               .collection('workers')

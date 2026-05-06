@@ -27,12 +27,24 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
   }
 
   @override
+  void dispose() {
+    _nameCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        title: const Text("İŞLETMEYİ DÜZENLE"),
-        backgroundColor: const Color(0xFF1E293B),
+        title: const Text(
+          "İŞLETMEYİ DÜZENLE",
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: theme.appBarTheme.backgroundColor,
+        centerTitle: true,
+        elevation: 0,
       ),
       body: Padding(
         padding: const EdgeInsets.all(25),
@@ -40,17 +52,31 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
           children: [
             TextField(
               controller: _nameCtrl,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: theme.textTheme.bodyLarge?.color),
               decoration: InputDecoration(
                 labelText: "İşletme Adı",
-                labelStyle: const TextStyle(color: Colors.white30),
-                prefixIcon: const Icon(
+                prefixIcon: Icon(
                   Icons.business,
-                  color: Colors.blueAccent,
+                  color: theme.colorScheme.primary,
+                ),
+                filled: true,
+                fillColor: theme.cardColor,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(15),
-                  borderSide: const BorderSide(color: Colors.white10),
+                  borderSide: BorderSide(
+                    color: theme.dividerColor.withOpacity(0.1),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide(
+                    color: theme.colorScheme.primary,
+                    width: 2,
+                  ),
                 ),
               ),
             ),
@@ -60,16 +86,44 @@ class _BusinessEditScreenState extends State<BusinessEditScreen> {
               height: 55,
               child: ElevatedButton(
                 onPressed: () async {
-                  await FirebaseFirestore.instance
-                      .collection('business')
-                      .doc(widget.docId)
-                      .update({'business_name': _nameCtrl.text.trim()});
-                  if (mounted) Navigator.pop(context);
+                  try {
+                    await FirebaseFirestore.instance
+                        .collection('business')
+                        .doc(widget.docId)
+                        .update({'business_name': _nameCtrl.text.trim()});
+
+                    if (mounted) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text("İşletme bilgileri güncellendi"),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Hata oluştu: $e")),
+                      );
+                    }
+                  }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blueAccent,
+                  backgroundColor: theme.colorScheme.primary, // Koyu Mavi Buton
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 0,
                 ),
-                child: const Text("GÜNCELLEMELERİ KAYDET"),
+                child: const Text(
+                  "GÜNCELLEMELERİ KAYDET",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 0.5,
+                  ),
+                ),
               ),
             ),
           ],
