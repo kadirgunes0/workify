@@ -1,14 +1,17 @@
 import 'package:buildgym/screens/edit/business_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 import 'dart:math';
 import 'login.dart';
 
 class RootMainScreen extends StatefulWidget {
+  final Map<String, dynamic> adminData;
+
   const RootMainScreen({
     super.key,
-    required firmaKey,
-    required Map<String, dynamic> adminData,
+    required String firmaKey,
+    required this.adminData,
   });
 
   @override
@@ -18,11 +21,12 @@ class RootMainScreen extends StatefulWidget {
 class _RootMainScreenState extends State<RootMainScreen> {
   int _selectedIndex = 0;
 
-  // Form Kontrolcüleri
+  final _businessNameCtrl = TextEditingController();
   final _adminNameCtrl = TextEditingController();
+  final _adminEmailCtrl = TextEditingController();
   final _adminUsernameCtrl = TextEditingController();
   final _adminPasswordCtrl = TextEditingController();
-  final _businessNameCtrl = TextEditingController();
+  DateTime? _adminBirthDate;
 
   @override
   Widget build(BuildContext context) {
@@ -34,11 +38,7 @@ class _RootMainScreenState extends State<RootMainScreen> {
       appBar: AppBar(
         title: const Text(
           "ROOT KONTROL PANELİ",
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-            letterSpacing: 1,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
         backgroundColor: theme.appBarTheme.backgroundColor,
         centerTitle: true,
@@ -86,26 +86,18 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
-  // --- 1. İŞLETME LİSTESİ ---
   Widget _buildBusinessTab() {
     final theme = Theme.of(context);
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('business').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (!snapshot.hasData)
           return Center(
             child: CircularProgressIndicator(color: theme.colorScheme.primary),
           );
-        }
         var docs = snapshot.data!.docs;
-        if (docs.isEmpty) {
-          return const Center(
-            child: Text(
-              "Kayıtlı işletme bulunamadı.",
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
+        if (docs.isEmpty)
+          return const Center(child: Text("Kayıtlı işletme bulunamadı."));
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
@@ -121,27 +113,17 @@ class _RootMainScreenState extends State<RootMainScreen> {
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
-                  child: Icon(
-                    Icons.business,
-                    color: theme.colorScheme.primary,
-                    size: 20,
-                  ),
+                  child: Icon(Icons.business, color: theme.colorScheme.primary),
                 ),
                 title: Text(
                   data['business_name']?.toUpperCase() ?? "İSİMSİZ",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text(
                   "ID: ${data['business_id']}",
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
-                trailing: const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Colors.grey,
-                ),
+                trailing: const Icon(Icons.chevron_right_rounded),
                 onTap: () => _showBusinessDetails(docs[index].id, data),
               ),
             );
@@ -151,44 +133,164 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
-  // --- 2. PROFİL TAB ---
+  // --- YENİ VERİLERİN GÖSTERİLDİĞİ PROFİL TABI ---
   Widget _buildProfileTab() {
     final theme = Theme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 35),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.admin_panel_settings_rounded,
-              size: 80,
-              color: theme.colorScheme.primary,
+    var profile = widget.adminData;
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(25),
+      child: Column(
+        children: [
+          Icon(
+            Icons.admin_panel_settings_rounded,
+            size: 70,
+            color: theme.colorScheme.primary,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            profile['name_surname']?.toString().toUpperCase() ??
+                "SİSTEM YÖNETİCİSİ",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const Text(
+            "Sistem Root Yetkili Erişimi",
+            style: TextStyle(color: Colors.grey, fontSize: 12),
+          ),
+          const SizedBox(height: 30),
+
+          _profileInfoCard(
+            "Kullanıcı Adı",
+            "@${profile['username'] ?? 'root'}",
+            Icons.alternate_email,
+            context,
+          ),
+          _profileInfoCard(
+            "E-Posta Adresi",
+            profile['email'] ?? "root@workify.com",
+            Icons.email_outlined,
+            context,
+          ),
+
+          if (profile['birth_date'] != null)
+            _profileInfoCard(
+              "Doğum Tarihi",
+              DateFormat(
+                'dd.MM.yyyy',
+              ).format((profile['birth_date'] as Timestamp).toDate()),
+              Icons.cake_outlined,
+              context,
             ),
-            const SizedBox(height: 20),
-            Text(
-              "SİSTEM YÖNETİCİSİ",
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+
+          const SizedBox(height: 40),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (c) => const LoginPage()),
             ),
-            const Text(
-              "Root Yetkili Erişimi",
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+            icon: const Icon(Icons.power_settings_new_rounded),
+            label: const Text("SİSTEMDEN GÜVENLİ ÇIKIŞ"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent.withOpacity(0.1),
+              foregroundColor: Colors.redAccent,
+              side: const BorderSide(color: Colors.redAccent, width: 0.8),
             ),
-            const SizedBox(height: 60),
-            ElevatedButton.icon(
-              onPressed: () => Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (c) => const LoginPage()),
-              ),
-              icon: const Icon(Icons.power_settings_new_rounded),
-              label: const Text("SİSTEMDEN GÜVENLİ ÇIKIŞ YAP"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent.withOpacity(0.1),
-                foregroundColor: Colors.redAccent,
-                side: const BorderSide(color: Colors.redAccent, width: 0.8),
-              ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileInfoCard(
+    String label,
+    String value,
+    IconData icon,
+    BuildContext context,
+  ) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      child: ListTile(
+        leading: Icon(icon, color: theme.colorScheme.primary),
+        title: Text(
+          label,
+          style: const TextStyle(color: Colors.grey, fontSize: 11),
+        ),
+        subtitle: Text(
+          value,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ),
+    );
+  }
+
+  void _showCreateBusinessDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text("Yeni İşletme Kur"),
+          scrollable: true,
+          content: SizedBox(
+            width: MediaQuery.of(context).size.width * 0.9,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _field(_businessNameCtrl, "İşletme Adı", Icons.business),
+                _field(_adminNameCtrl, "Admin Ad Soyad", Icons.person),
+                _field(_adminEmailCtrl, "Admin E-Posta", Icons.email_outlined),
+
+                Card(
+                  elevation: 0,
+                  color: Theme.of(context).cardColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.cake_outlined),
+                    title: Text(
+                      _adminBirthDate == null
+                          ? "Admin Doğum Tarihi"
+                          : DateFormat('dd.MM.yyyy').format(_adminBirthDate!),
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                    onTap: () async {
+                      // Çakışmayı ve aralık seçimini önleyen tekli takvim açıcı
+                      DateTime? picked = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime(1995),
+                        firstDate: DateTime(1950),
+                        lastDate: DateTime.now(),
+                      );
+                      if (picked != null) {
+                        setDialogState(() => _adminBirthDate = picked);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _field(
+                  _adminUsernameCtrl,
+                  "Admin Kullanıcı Adı",
+                  Icons.alternate_email,
+                ),
+                _field(
+                  _adminPasswordCtrl,
+                  "Admin Şifre (Min 8 Karakter, 1 Harf)",
+                  Icons.lock,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("İPTAL"),
+            ),
+            ElevatedButton(
+              onPressed: _setupNewBusiness,
+              child: const Text("SİSTEMİ KUR"),
             ),
           ],
         ),
@@ -196,52 +298,13 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
-  // --- HATAYI ÇÖZEN DÜZELTİLMİŞ DİYALOG ---
-  void _showCreateBusinessDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Yeni İşletme Kur"),
-        scrollable:
-            true, // İÇERİĞİN KAYDIRILABİLİR OLMASINI SAĞLAR (REKOR KIRAN HATAYI ÇÖZER)
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.9,
-          child: Column(
-            mainAxisSize:
-                MainAxisSize.min, // COLUMN'UN SONSUZA GİTMESİNİ ENGELLER
-            children: [
-              _field(_businessNameCtrl, "İşletme Adı", Icons.business),
-              _field(_adminNameCtrl, "Admin Ad Soyad", Icons.person),
-              _field(
-                _adminUsernameCtrl,
-                "Admin Kullanıcı Adı",
-                Icons.alternate_email,
-              ),
-              _field(_adminPasswordCtrl, "Admin Şifre", Icons.lock),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("İPTAL"),
-          ),
-          ElevatedButton(
-            onPressed: _setupNewBusiness,
-            child: const Text("SİSTEMİ KUR"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- DÜZELTİLMİŞ YARDIMCI METOTLAR ---
   Widget _field(TextEditingController c, String l, IconData i) {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: TextField(
         controller: c,
+        style: TextStyle(color: theme.textTheme.bodyLarge?.color),
         decoration: InputDecoration(
           labelText: l,
           prefixIcon: Icon(i, color: theme.colorScheme.primary),
@@ -256,8 +319,74 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
-  // ... (Geri kalan yardımcı metotlar ve Firebase işlemleri aynı kalıyor)
-  // Detay gösterme, Silme teyidi vb. kodlarını buraya ekleyebilirsin.
+  Future<void> _setupNewBusiness() async {
+    if (_businessNameCtrl.text.isEmpty ||
+        _adminNameCtrl.text.isEmpty ||
+        _adminEmailCtrl.text.isEmpty ||
+        _adminUsernameCtrl.text.isEmpty ||
+        _adminPasswordCtrl.text.isEmpty ||
+        _adminBirthDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Lütfen tüm alanları doldurun ve tarihi seçin!"),
+        ),
+      );
+      return;
+    }
+
+    // Şifre Güvenlik Kontrolü
+    if (_adminPasswordCtrl.text.length < 8 ||
+        !RegExp(r'[a-zA-ZİıĞğÜüŞşÖöÇç]').hasMatch(_adminPasswordCtrl.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Şifre en az 8 karakter olmalı ve en az 1 harf içermelidir!",
+          ),
+        ),
+      );
+      return;
+    }
+
+    String businessId = "WRK${Random().nextInt(9000) + 1000}";
+    String docName = _businessNameCtrl.text.toLowerCase().replaceAll(' ', '_');
+
+    try {
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      // İşletme Dokümanı
+      batch
+          .set(FirebaseFirestore.instance.collection('business').doc(docName), {
+            'business_id': businessId,
+            'business_name': _businessNameCtrl.text.trim(),
+            'branches': {},
+          });
+
+      // Admin Dokümanı (Yeni alanlar eklendi)
+      batch.set(FirebaseFirestore.instance.collection('admins').doc(docName), {
+        'business_id': businessId,
+        'name_surname': _adminNameCtrl.text.trim(),
+        'email': _adminEmailCtrl.text.trim(),
+        'birth_date': Timestamp.fromDate(_adminBirthDate!),
+        'username': _adminUsernameCtrl.text.trim(),
+        'password': _adminPasswordCtrl.text.trim(),
+        'role': 'admin',
+      });
+
+      await batch.commit();
+
+      if (mounted) {
+        Navigator.pop(context);
+        _adminNameCtrl.clear();
+        _adminEmailCtrl.clear();
+        _adminUsernameCtrl.clear();
+        _adminPasswordCtrl.clear();
+        _businessNameCtrl.clear();
+        setState(() => _adminBirthDate = null);
+      }
+    } catch (e) {
+      debugPrint(e.toString());
+    }
+  }
 
   void _showBusinessDetails(String docId, Map<String, dynamic> businessData) {
     final theme = Theme.of(context);
@@ -330,35 +459,4 @@ class _RootMainScreenState extends State<RootMainScreen> {
       ],
     ),
   );
-
-  Future<void> _setupNewBusiness() async {
-    String businessId = "WRK${Random().nextInt(9000) + 1000}";
-    String docName = _businessNameCtrl.text.toLowerCase().replaceAll(' ', '_');
-    try {
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      batch
-          .set(FirebaseFirestore.instance.collection('business').doc(docName), {
-            'business_id': businessId,
-            'business_name': _businessNameCtrl.text.trim(),
-            'branches': {},
-          });
-      batch.set(FirebaseFirestore.instance.collection('admins').doc(docName), {
-        'business_id': businessId,
-        'name_surname': _adminNameCtrl.text.trim(),
-        'username': _adminUsernameCtrl.text.trim(),
-        'password': _adminPasswordCtrl.text.trim(),
-        'role': 'admin',
-      });
-      await batch.commit();
-      if (mounted) {
-        Navigator.pop(context);
-        _adminNameCtrl.clear();
-        _adminUsernameCtrl.clear();
-        _adminPasswordCtrl.clear();
-        _businessNameCtrl.clear();
-      }
-    } catch (e) {
-      debugPrint(e.toString());
-    }
-  }
 }
