@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:device_info_plus/device_info_plus.dart';
-// buildgym olan importları kendi proje yapına göre (workify) kontrol etmeyi unutma
 import 'package:buildgym/screens/main_screen/admin_main_screen.dart';
 import 'worker_main_screen.dart';
 import 'root_main_screen.dart';
@@ -252,7 +251,7 @@ class _LoginPageState extends State<LoginPage>
       prefixIcon: Icon(icon),
       filled: true,
       // Temaya göre kutu iç rengini hafif gri/beyaz yapar
-      fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+      fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none,

@@ -111,8 +111,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
 
       // Yetki Kontrolü
       List<dynamic> access = workerData['access'] ?? [];
-      if (access.isEmpty && workerData['branch_name'] != null)
+      if (access.isEmpty && workerData['branch_name'] != null) {
         access.add(workerData['branch_name']);
+      }
 
       if (!access.any(
         (e) => e.toString().toLowerCase() == qrSube.toLowerCase(),
@@ -237,9 +238,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(c);
-              if (isSuccess)
+              if (isSuccess) {
                 setState(() => _selectedIndex = 0);
-              else if (_selectedIndex == 1)
+              } else if (_selectedIndex == 1)
                 _cameraController.start();
             },
             child: const Text("TAMAM"),
@@ -260,10 +261,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
         currentIndex: _selectedIndex,
         onTap: (index) {
           setState(() => _selectedIndex = index);
-          if (index == 1)
+          if (index == 1) {
             _cameraController.start();
-          else
+          } else {
             _cameraController.stop();
+          }
         },
         items: const [
           BottomNavigationBarItem(
@@ -293,8 +295,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
             .limit(1)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData)
+          if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
+          }
           var workerData =
               snapshot.data!.docs.first.data() as Map<String, dynamic>;
           bool isInside = (workerData['lastStatus'] ?? 'cikis') == 'giris';
@@ -413,8 +416,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
         MobileScanner(
           controller: _cameraController,
           onDetect: (capture) {
-            if (!isProcessing && capture.barcodes.isNotEmpty)
+            if (!isProcessing && capture.barcodes.isNotEmpty) {
               _processQrCode(capture.barcodes.first.rawValue ?? "");
+            }
           },
         ),
         Center(

@@ -92,18 +92,20 @@ class _RootMainScreenState extends State<RootMainScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('business').snapshots(),
       builder: (context, snapshot) {
-        if (!snapshot.hasData)
+        if (!snapshot.hasData) {
           return Center(
             child: CircularProgressIndicator(color: theme.colorScheme.primary),
           );
+        }
         var docs = snapshot.data!.docs;
-        if (docs.isEmpty)
+        if (docs.isEmpty) {
           return const Center(
             child: Text(
               "Kayıtlı işletme bulunamadı.",
               style: TextStyle(color: Colors.grey),
             ),
           );
+        }
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),

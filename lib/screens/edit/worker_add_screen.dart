@@ -163,7 +163,7 @@ class _WorkerAddScreenState extends State<WorkerAddScreen> {
                   const SizedBox(height: 25),
 
                   DropdownButtonFormField<String>(
-                    value: _selectedRole,
+                    initialValue: _selectedRole,
                     dropdownColor: theme.cardColor,
                     style: TextStyle(
                       color: theme.textTheme.bodyLarge?.color,

@@ -56,8 +56,9 @@ class _AdminLogTabState extends State<AdminLogTab> {
         logData['username']?.toString() ??
         "";
 
-    if (searchKey.isNotEmpty && _workerCache.containsKey(searchKey))
+    if (searchKey.isNotEmpty && _workerCache.containsKey(searchKey)) {
       return _workerCache[searchKey]!;
+    }
 
     try {
       if (searchKey.isNotEmpty) {
