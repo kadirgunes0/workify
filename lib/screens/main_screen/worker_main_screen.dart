@@ -95,9 +95,14 @@ class _UserMainScreenState extends State<UserMainScreen> {
         return;
       }
 
+      String currentUsername = (widget.userData['username'] ?? "")
+          .toString()
+          .toLowerCase()
+          .trim();
+
       var workerQuery = await FirebaseFirestore.instance
           .collection('workers')
-          .where('username', isEqualTo: widget.userData['username'])
+          .where('username', isEqualTo: currentUsername)
           .limit(1)
           .get();
 
@@ -109,7 +114,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
       var workerDoc = workerQuery.docs.first;
       var workerData = workerDoc.data();
 
-      // Yetki Kontrolü
       List<dynamic> access = workerData['access'] ?? [];
       if (access.isEmpty && workerData['branch_name'] != null) {
         access.add(workerData['branch_name']);
@@ -159,7 +163,6 @@ class _UserMainScreenState extends State<UserMainScreen> {
           : 'giris';
       String statusLabel = (newStatus == 'giris') ? "GİRİŞ" : "ÇIKIŞ";
 
-      // Cihaz Bilgisi
       String liveDevice = "Bilinmeyen Cihaz";
       DeviceInfoPlugin deviceInfo = DeviceInfoPlugin();
       if (Platform.isAndroid) {
@@ -180,7 +183,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
         'business_id': widget.firmaKey,
         'branch_name': qrSube,
         'worker_name': widget.userData['name_surname'],
-        'worker_id': widget.userData['username'],
+        'worker_id': currentUsername,
         'device_name': liveDevice,
         'type': statusLabel,
         'timestamp': FieldValue.serverTimestamp(),
@@ -240,8 +243,9 @@ class _UserMainScreenState extends State<UserMainScreen> {
               Navigator.pop(c);
               if (isSuccess) {
                 setState(() => _selectedIndex = 0);
-              } else if (_selectedIndex == 1)
+              } else if (_selectedIndex == 1) {
                 _cameraController.start();
+              }
             },
             child: const Text("TAMAM"),
           ),
@@ -270,7 +274,7 @@ class _UserMainScreenState extends State<UserMainScreen> {
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.dashboard_rounded),
-            label: "Panel",
+            label: "Ana Menü",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.qr_code_scanner_rounded),
@@ -285,19 +289,34 @@ class _UserMainScreenState extends State<UserMainScreen> {
     );
   }
 
+  // --- ANLIK HAREKETLERİN AKTIĞI ANA SAYFA TABI ---
   Widget _buildHomeTab() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    String currentUsername = (widget.userData['username'] ?? "")
+        .toString()
+        .toLowerCase()
+        .trim();
+
     return SafeArea(
       child: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('workers')
-            .where('username', isEqualTo: widget.userData['username'])
+            .where('username', isEqualTo: currentUsername)
             .limit(1)
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return Center(
+              child: CircularProgressIndicator(
+                color: theme.colorScheme.primary,
+              ),
+            );
           }
+          if (snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text("Personel dökümanı bulunamadı."));
+          }
+
           var workerData =
               snapshot.data!.docs.first.data() as Map<String, dynamic>;
           bool isInside = (workerData['lastStatus'] ?? 'cikis') == 'giris';
@@ -356,44 +375,119 @@ class _UserMainScreenState extends State<UserMainScreen> {
                   ),
                 ),
                 const SizedBox(height: 10),
+
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
                     stream: FirebaseFirestore.instance
                         .collection('logs')
-                        .where(
-                          'worker_id',
-                          isEqualTo: widget.userData['username'],
-                        )
+                        .where('worker_id', isEqualTo: currentUsername)
                         .orderBy('timestamp', descending: true)
                         .limit(10)
                         .snapshots(),
                     builder: (context, logSnap) {
-                      if (!logSnap.hasData) return const SizedBox();
+                      if (logSnap.hasError) {
+                        return const Center(
+                          child: Text("Hareketler yüklenemedi."),
+                        );
+                      }
+                      if (logSnap.connectionState == ConnectionState.waiting) {
+                        return Center(
+                          child: CircularProgressIndicator(
+                            color: theme.colorScheme.primary,
+                          ),
+                        );
+                      }
+
+                      var docs = logSnap.data?.docs ?? [];
+                      if (docs.isEmpty) {
+                        return Center(
+                          child: Text(
+                            "Henüz bir hareket kaydı bulunmuyor.\n(ID: $currentUsername)",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.grey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        );
+                      }
+
                       return ListView.builder(
-                        itemCount: logSnap.data!.docs.length,
+                        itemCount: docs.length,
                         itemBuilder: (context, index) {
-                          var log =
-                              logSnap.data!.docs[index].data()
-                                  as Map<String, dynamic>;
-                          bool isEntry = log['type'] == 'GİRİŞ';
+                          var log = docs[index].data() as Map<String, dynamic>;
+                          String logType = (log['type'] ?? "")
+                              .toString()
+                              .toUpperCase();
+                          bool isEntry =
+                              logType.contains('GİR') || logType == 'GİRİŞ';
+                          DateTime dt =
+                              (log['timestamp'] as Timestamp?)?.toDate() ??
+                              DateTime.now();
+
                           return Card(
-                            margin: const EdgeInsets.only(bottom: 10),
-                            child: ListTile(
-                              leading: Icon(
-                                isEntry ? Icons.login : Icons.logout,
-                                color: isEntry ? Colors.green : Colors.orange,
+                            color: isDark
+                                ? const Color(0xFF1E293B)
+                                : Colors.white,
+                            elevation: isDark ? 0 : 2,
+                            margin: const EdgeInsets.only(bottom: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15),
+                              side: BorderSide(
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.08)
+                                    : Colors.black.withOpacity(0.05),
+                                width: 1,
                               ),
-                              title: Text(
-                                log['type'],
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                            ),
+                            child: ListTile(
+                              leading: CircleAvatar(
+                                backgroundColor: isEntry
+                                    ? Colors.blueAccent.withOpacity(0.1)
+                                    : Colors.orangeAccent.withOpacity(0.1),
+                                child: Icon(
+                                  isEntry
+                                      ? Icons.login_rounded
+                                      : Icons.logout_rounded,
+                                  color: isEntry
+                                      ? Colors.blueAccent
+                                      : Colors.orangeAccent,
+                                  size: 18,
                                 ),
                               ),
-                              subtitle: Text(log['branch_name'] ?? ""),
-                              trailing: Text(
-                                log['timestamp'] != null
-                                    ? "${(log['timestamp'] as Timestamp).toDate().hour}:${(log['timestamp'] as Timestamp).toDate().minute}"
-                                    : "",
+                              title: Text(
+                                isEntry ? "GİRİŞ" : "ÇIKIŞ",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              subtitle: Text(
+                                log['branch_name'] ?? "",
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              trailing: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Text(
+                                    "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  Text(
+                                    "${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}",
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           );
@@ -435,14 +529,42 @@ class _UserMainScreenState extends State<UserMainScreen> {
     );
   }
 
+  // --- GELİŞMİŞ VE ZENGİNLEŞTİRİLMİŞ PROFİL TABI ---
   Widget _buildProfileTab() {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    String name = widget.userData['name_surname'] ?? "Bilinmeyen Personel";
+    String username = widget.userData['username'] ?? "---";
+    String email = widget.userData['email'] ?? "E-Posta Tanımlanmamış";
+    String role = widget.userData['role'] ?? "staff";
+    String ageStr = widget.userData['age']?.toString() ?? "---";
+
+    String roleLabel = "STAFF (Personel)";
+    if (role == 'manager') roleLabel = "MANAGER (Yönetici)";
+    if (role == 'part_time') roleLabel = "PART-TIME (Yarı Zamanlı)";
+
+    String birthDateStr = "Seçilmemiş";
+    if (widget.userData['birth_date'] != null) {
+      try {
+        if (widget.userData['birth_date'] is Timestamp) {
+          DateTime dt = (widget.userData['birth_date'] as Timestamp).toDate();
+          birthDateStr =
+              "${dt.day.toString().padLeft(2, '0')}.${dt.month.toString().padLeft(2, '0')}.${dt.year}";
+        } else {
+          birthDateStr = widget.userData['birth_date'].toString().split(' ')[0];
+        }
+      } catch (e) {
+        birthDateStr = "Format Hatası";
+      }
+    }
+
     return SingleChildScrollView(
       child: Column(
         children: [
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 60, 20, 30),
+            padding: const EdgeInsets.fromLTRB(20, 50, 20, 30),
             decoration: BoxDecoration(
               color: theme.colorScheme.primary,
               borderRadius: const BorderRadius.vertical(
@@ -451,17 +573,42 @@ class _UserMainScreenState extends State<UserMainScreen> {
             ),
             child: Column(
               children: [
-                const CircleAvatar(
-                  radius: 40,
-                  child: Icon(Icons.person, size: 40),
+                CircleAvatar(
+                  radius: 42,
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  child: const Icon(
+                    Icons.person,
+                    size: 45,
+                    color: Colors.white,
+                  ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 Text(
-                  widget.userData['name_surname'] ?? "",
+                  name.toUpperCase(),
+                  textAlign: TextAlign.center,
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 20,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    roleLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -471,20 +618,69 @@ class _UserMainScreenState extends State<UserMainScreen> {
             padding: const EdgeInsets.all(20),
             child: Column(
               children: [
-                _profileTile("İşletme", widget.firmaKey, Icons.business),
+                _profileTile("Adı Soyadı", name, Icons.badge_outlined, isDark),
                 _profileTile(
-                  "Kullanıcı",
-                  widget.userData['username'],
-                  Icons.person_pin,
+                  "Kullanıcı Adı",
+                  "@$username",
+                  Icons.alternate_email_rounded,
+                  isDark,
+                ),
+                _profileTile(
+                  "E-Posta Adresi",
+                  email,
+                  Icons.email_outlined,
+                  isDark,
+                ),
+                _profileTile(
+                  "Doğum Tarihi",
+                  birthDateStr,
+                  Icons.cake_outlined,
+                  isDark,
+                ),
+                _profileTile(
+                  "Yaş",
+                  "$ageStr Yaşında",
+                  Icons.calendar_today_rounded,
+                  isDark,
+                ),
+                _profileTile(
+                  "Yetki Rolü",
+                  roleLabel,
+                  Icons.admin_panel_settings_outlined,
+                  isDark,
+                ),
+                _profileTile(
+                  "İşletme Anahtarı",
+                  widget.firmaKey,
+                  Icons.vpn_key_outlined,
+                  isDark,
+                ),
+                const SizedBox(height: 25),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (c) => const LoginPage()),
+                    ),
+                    icon: const Icon(Icons.power_settings_new_rounded),
+                    label: const Text("SİSTEMDEN GÜVENLİ ÇIKIŞ"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent.withOpacity(0.1),
+                      foregroundColor: Colors.redAccent,
+                      elevation: 0,
+                      side: const BorderSide(
+                        color: Colors.redAccent,
+                        width: 0.8,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 20),
-                ElevatedButton(
-                  onPressed: () => Navigator.pushReplacement(
-                    context,
-                    MaterialPageRoute(builder: (c) => const LoginPage()),
-                  ),
-                  child: const Text("ÇIKIŞ YAP"),
-                ),
               ],
             ),
           ),
@@ -493,15 +689,42 @@ class _UserMainScreenState extends State<UserMainScreen> {
     );
   }
 
-  Widget _profileTile(String t, String v, IconData i) {
+  Widget _profileTile(String title, String value, IconData icon, bool isDark) {
     return Card(
-      child: ListTile(
-        leading: Icon(i, color: Theme.of(context).colorScheme.primary),
-        title: Text(
-          t,
-          style: const TextStyle(fontSize: 12, color: Colors.grey),
+      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+      elevation: isDark ? 0 : 1,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+        side: BorderSide(
+          color: isDark
+              ? Colors.white.withOpacity(0.08)
+              : Colors.black.withOpacity(0.05),
+          width: 1,
         ),
-        subtitle: Text(v, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+      child: ListTile(
+        leading: Icon(
+          icon,
+          color: Theme.of(context).colorScheme.primary,
+          size: 22,
+        ),
+        title: Text(
+          title,
+          style: const TextStyle(
+            fontSize: 11,
+            color: Colors.grey,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        subtitle: Text(
+          value,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
       ),
     );
   }

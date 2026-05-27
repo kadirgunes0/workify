@@ -1,7 +1,5 @@
-import 'package:buildgym/screens/edit/business_edit_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:intl/intl.dart';
 import 'dart:math';
 import 'login.dart';
 
@@ -21,6 +19,7 @@ class RootMainScreen extends StatefulWidget {
 class _RootMainScreenState extends State<RootMainScreen> {
   int _selectedIndex = 0;
 
+  // Form Kontrolcüleri
   final _businessNameCtrl = TextEditingController();
   final _adminNameCtrl = TextEditingController();
   final _adminEmailCtrl = TextEditingController();
@@ -86,6 +85,7 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
+  // --- 1. İŞLETME LİSTESİ ---
   Widget _buildBusinessTab() {
     final theme = Theme.of(context);
     return StreamBuilder<QuerySnapshot>(
@@ -97,7 +97,12 @@ class _RootMainScreenState extends State<RootMainScreen> {
           );
         var docs = snapshot.data!.docs;
         if (docs.isEmpty)
-          return const Center(child: Text("Kayıtlı işletme bulunamadı."));
+          return const Center(
+            child: Text(
+              "Kayıtlı işletme bulunamadı.",
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
@@ -133,7 +138,7 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
-  // --- YENİ VERİLERİN GÖSTERİLDİĞİ PROFİL TABI ---
+  // --- 2. PROFİL TAB ---
   Widget _buildProfileTab() {
     final theme = Theme.of(context);
     var profile = widget.adminData;
@@ -175,27 +180,12 @@ class _RootMainScreenState extends State<RootMainScreen> {
           if (profile['birth_date'] != null)
             _profileInfoCard(
               "Doğum Tarihi",
-              DateFormat(
-                'dd.MM.yyyy',
-              ).format((profile['birth_date'] as Timestamp).toDate()),
+              DateTime.fromMillisecondsSinceEpoch(
+                (profile['birth_date'] as Timestamp).millisecondsSinceEpoch,
+              ).toLocal().toString().split(' ')[0],
               Icons.cake_outlined,
               context,
             ),
-
-          const SizedBox(height: 40),
-          ElevatedButton.icon(
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (c) => const LoginPage()),
-            ),
-            icon: const Icon(Icons.power_settings_new_rounded),
-            label: const Text("SİSTEMDEN GÜVENLİ ÇIKIŞ"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent.withOpacity(0.1),
-              foregroundColor: Colors.redAccent,
-              side: const BorderSide(color: Colors.redAccent, width: 0.8),
-            ),
-          ),
         ],
       ),
     );
@@ -225,6 +215,288 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
+  // --- İŞLETME DETAY, GÜNCELLEME VE SİLME PANELİ (BOTTOM SHEET) ---
+  void _showBusinessDetails(
+    String docId,
+    Map<String, dynamic> businessData,
+  ) async {
+    final theme = Theme.of(context);
+    String bId = businessData['business_id'] ?? "";
+
+    _businessNameCtrl.text = businessData['business_name'] ?? "";
+    _adminNameCtrl.clear();
+    _adminUsernameCtrl.clear();
+    _adminPasswordCtrl.clear();
+
+    var adminQuery = await FirebaseFirestore.instance
+        .collection('admins')
+        .where('business_id', isEqualTo: bId)
+        .limit(1)
+        .get();
+
+    Map<String, dynamic> adminData = {};
+    String adminDocId = "";
+
+    if (adminQuery.docs.isNotEmpty) {
+      adminDocId = adminQuery.docs.first.id;
+      adminData = adminQuery.docs.first.data();
+      _adminNameCtrl.text = adminData['name_surname'] ?? "";
+      _adminUsernameCtrl.text = adminData['username'] ?? "";
+      _adminPasswordCtrl.text = adminData['password'] ?? "";
+    }
+
+    if (!mounted) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) {
+        int branchCount = (businessData['branches'] as Map? ?? {}).length;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+            30,
+            25,
+            30,
+            MediaQuery.of(context).viewInsets.bottom + 30,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        "${businessData['business_name']?.toUpperCase()} - YÖNETİM",
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    // KAN KIRMIZISI GÜVENLİ SİLME BUTONU
+                    IconButton(
+                      icon: const Icon(
+                        Icons.delete_forever_rounded,
+                        color: Colors.redAccent,
+                        size: 26,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context); // Önce alt paneli kapat
+                        _confirmDeleteBusiness(
+                          docId,
+                          adminDocId,
+                          businessData['business_name'] ?? "",
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const Divider(height: 20),
+
+                _sheetRow(
+                  Icons.storefront,
+                  "Şube Sayısı",
+                  branchCount.toString(),
+                ),
+                _sheetRow(Icons.vpn_key, "Business ID", bId),
+                const SizedBox(height: 15),
+
+                _field(_businessNameCtrl, "İşletme Adı", Icons.business),
+                _field(_adminNameCtrl, "Admin Ad Soyad", Icons.person),
+                _field(
+                  _adminUsernameCtrl,
+                  "Admin Kullanıcı Adı",
+                  Icons.alternate_email,
+                ),
+                _field(
+                  _adminPasswordCtrl,
+                  "Admin Şifre (Min 8 Karakter, 1 Harf)",
+                  Icons.lock,
+                ),
+
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    onPressed: () => _updateBusinessAndAdmin(docId, adminDocId),
+                    icon: const Icon(Icons.save_rounded, color: Colors.white),
+                    label: const Text(
+                      "DEĞİŞİKLİKLERİ KAYDET",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // --- SİLME ONAY DİYALOGU ---
+  void _confirmDeleteBusiness(
+    String bDocId,
+    String aDocId,
+    String businessName,
+  ) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: const [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent),
+            SizedBox(width: 10),
+            Text("İşletmeyi Sil?"),
+          ],
+        ),
+        content: Text(
+          "$businessName işletmesi ve buna bağlı tüm admin hesapları kalıcı olarak silinecektir. Bu işlem geri alınamaz!",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("İPTAL", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteBusinessAndAdmin(bDocId, aDocId);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            child: const Text(
+              "EVET, SİL",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- FIREBASE BATCH SİLME FONKSİYONU ---
+  Future<void> _deleteBusinessAndAdmin(String bDocId, String aDocId) async {
+    try {
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      // 1. Business dokümanını kuyruğa ekle
+      DocumentReference businessRef = FirebaseFirestore.instance
+          .collection('business')
+          .doc(bDocId);
+      batch.delete(businessRef);
+
+      // 2. Admin dokümanı varsa kuyruğa ekle
+      if (aDocId.isNotEmpty) {
+        DocumentReference adminRef = FirebaseFirestore.instance
+            .collection('admins')
+            .doc(aDocId);
+        batch.delete(adminRef);
+      }
+
+      // İkisini aynı anda atomik olarak sil
+      await batch.commit();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("İşletme ve ilgili admin başarıyla silindi."),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Silme hatası: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Silme işlemi başarısız: $e")));
+      }
+    }
+  }
+
+  // --- BATCH GÜNCELLEME FONKSİYONU ---
+  Future<void> _updateBusinessAndAdmin(String bDocId, String aDocId) async {
+    if (_businessNameCtrl.text.isEmpty ||
+        _adminNameCtrl.text.isEmpty ||
+        _adminUsernameCtrl.text.isEmpty ||
+        _adminPasswordCtrl.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Lütfen hiçbir alanı boş bırakmayın!")),
+      );
+      return;
+    }
+
+    String inputPass = _adminPasswordCtrl.text.trim();
+    if (inputPass.length < 8 ||
+        !RegExp(r'[a-zA-ZİıĞğÜüŞşÖöÇç]').hasMatch(inputPass)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Yeni şifre en az 8 karakter olmalı ve en az 1 harf içermelidir!",
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      WriteBatch batch = FirebaseFirestore.instance.batch();
+
+      DocumentReference businessRef = FirebaseFirestore.instance
+          .collection('business')
+          .doc(bDocId);
+      batch.update(businessRef, {
+        'business_name': _businessNameCtrl.text.trim(),
+      });
+
+      if (aDocId.isNotEmpty) {
+        DocumentReference adminRef = FirebaseFirestore.instance
+            .collection('admins')
+            .doc(aDocId);
+        batch.update(adminRef, {
+          'name_surname': _adminNameCtrl.text.trim(),
+          'username': _adminUsernameCtrl.text.trim(),
+          'password': inputPass,
+        });
+      }
+
+      await batch.commit();
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Bilgiler başarıyla güncellendi!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+        _businessNameCtrl.clear();
+        _adminNameCtrl.clear();
+        _adminUsernameCtrl.clear();
+        _adminPasswordCtrl.clear();
+      }
+    } catch (e) {
+      debugPrint("Güncelleme hatası: $e");
+    }
+  }
+
+  // --- YENİ İŞLETME KURMA DİYALOGU ---
   void _showCreateBusinessDialog() {
     showDialog(
       context: context,
@@ -252,11 +524,11 @@ class _RootMainScreenState extends State<RootMainScreen> {
                     title: Text(
                       _adminBirthDate == null
                           ? "Admin Doğum Tarihi"
-                          : DateFormat('dd.MM.yyyy').format(_adminBirthDate!),
+                          : _adminBirthDate!.toLocal().toString().split(' ')[0],
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
+                    trailing: const Icon(Icons.arrow_drop_down),
                     onTap: () async {
-                      // Çakışmayı ve aralık seçimini önleyen tekli takvim açıcı
                       DateTime? picked = await showDatePicker(
                         context: context,
                         initialDate: DateTime(1995),
@@ -319,6 +591,17 @@ class _RootMainScreenState extends State<RootMainScreen> {
     );
   }
 
+  Widget _sheetRow(IconData i, String l, String v) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: Row(
+      children: [
+        Icon(i, color: Colors.grey, size: 18),
+        const SizedBox(width: 15),
+        Text("$l: $v", style: const TextStyle(fontSize: 13)),
+      ],
+    ),
+  );
+
   Future<void> _setupNewBusiness() async {
     if (_businessNameCtrl.text.isEmpty ||
         _adminNameCtrl.text.isEmpty ||
@@ -327,23 +610,16 @@ class _RootMainScreenState extends State<RootMainScreen> {
         _adminPasswordCtrl.text.isEmpty ||
         _adminBirthDate == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Lütfen tüm alanları doldurun ve tarihi seçin!"),
-        ),
+        const SnackBar(content: Text("Lütfen tüm alanları doldurun!")),
       );
       return;
     }
 
-    // Şifre Güvenlik Kontrolü
     if (_adminPasswordCtrl.text.length < 8 ||
         !RegExp(r'[a-zA-ZİıĞğÜüŞşÖöÇç]').hasMatch(_adminPasswordCtrl.text)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Şifre en az 8 karakter olmalı ve en az 1 harf içermelidir!",
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Şifre kurallara uymuyor!")));
       return;
     }
 
@@ -353,7 +629,6 @@ class _RootMainScreenState extends State<RootMainScreen> {
     try {
       WriteBatch batch = FirebaseFirestore.instance.batch();
 
-      // İşletme Dokümanı
       batch
           .set(FirebaseFirestore.instance.collection('business').doc(docName), {
             'business_id': businessId,
@@ -361,7 +636,6 @@ class _RootMainScreenState extends State<RootMainScreen> {
             'branches': {},
           });
 
-      // Admin Dokümanı (Yeni alanlar eklendi)
       batch.set(FirebaseFirestore.instance.collection('admins').doc(docName), {
         'business_id': businessId,
         'name_surname': _adminNameCtrl.text.trim(),
@@ -387,76 +661,4 @@ class _RootMainScreenState extends State<RootMainScreen> {
       debugPrint(e.toString());
     }
   }
-
-  void _showBusinessDetails(String docId, Map<String, dynamic> businessData) {
-    final theme = Theme.of(context);
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      builder: (context) {
-        int branchCount = (businessData['branches'] as Map? ?? {}).length;
-        return Padding(
-          padding: const EdgeInsets.all(30),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                businessData['business_name']?.toUpperCase() ?? "",
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Divider(height: 30),
-              _sheetRow(
-                Icons.storefront,
-                "Şube Sayısı",
-                branchCount.toString(),
-              ),
-              _sheetRow(
-                Icons.vpn_key,
-                "Business ID",
-                businessData['business_id'],
-              ),
-              const SizedBox(height: 30),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (c) => BusinessEditScreen(
-                        docId: docId,
-                        currentData: businessData,
-                      ),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.edit, size: 18),
-                label: const Text("DÜZENLE"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _sheetRow(IconData i, String l, String v) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 8),
-    child: Row(
-      children: [
-        Icon(i, color: Colors.grey, size: 18),
-        const SizedBox(width: 15),
-        Text("$l: $v", style: const TextStyle(fontSize: 13)),
-      ],
-    ),
-  );
 }

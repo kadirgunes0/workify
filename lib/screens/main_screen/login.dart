@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Future<void> _handleLogin() async {
-    final String username = _userController.text.trim();
+    final String username = _userController.text.trim().toLowerCase();
     final String password = _passController.text.trim();
 
     if (username.isEmpty || password.isEmpty) {
@@ -117,6 +117,7 @@ class _LoginPageState extends State<LoginPage>
                 .collection('workers')
                 .doc(workerDocId)
                 .update({'device_id': currentDeviceId});
+            data['device_id'] = currentDeviceId; // Lokal veriyi de besleyelim
           } else if (registeredDeviceId != currentDeviceId) {
             _showError("Bu hesap başka bir cihaza kayıtlı.");
             setState(() => _isLoading = false);
@@ -124,6 +125,9 @@ class _LoginPageState extends State<LoginPage>
           }
 
           String firmaKey = data['business_id'] ?? "";
+
+          // Eşleşme hatasını durdurmak için transfer edilecek Map'in içindeki username alanını da temizliyoruz
+          data['username'] = username;
 
           if (!mounted) return;
           Navigator.pushReplacement(
@@ -152,12 +156,10 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
-    // Temaya göre dinamik renkleri buradan alıyoruz
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      // Arka plan rengini artık main.dart'taki ThemeData'dan alıyor
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(35),
@@ -167,13 +169,12 @@ class _LoginPageState extends State<LoginPage>
               Icon(
                 Icons.apartment_rounded,
                 size: 80,
-                color: theme.colorScheme.primary, // Dinamik ana renk
+                color: theme.colorScheme.primary,
               ),
               const SizedBox(height: 15),
               Text(
                 "WORKIFY",
                 style: TextStyle(
-                  // Yazı rengi temaya göre otomatik siyah veya beyaz olur
                   color: theme.textTheme.headlineLarge?.color,
                   fontSize: 28,
                   fontWeight: FontWeight.w900,
@@ -218,15 +219,6 @@ class _LoginPageState extends State<LoginPage>
                       height: 55,
                       child: ElevatedButton(
                         onPressed: _handleLogin,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: theme.colorScheme.primary,
-                          foregroundColor:
-                              Colors.white, // Buton üzerindeki yazı rengi
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                          ),
-                          elevation: 0,
-                        ),
                         child: const Text(
                           "GİRİŞ YAP",
                           style: TextStyle(fontWeight: FontWeight.bold),
@@ -250,7 +242,6 @@ class _LoginPageState extends State<LoginPage>
       labelText: label,
       prefixIcon: Icon(icon),
       filled: true,
-      // Temaya göre kutu iç rengini hafif gri/beyaz yapar
       fillColor: theme.colorScheme.surfaceContainerHighest.withOpacity(0.3),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
