@@ -4,14 +4,14 @@ Workify, Flutter ile geliştirilmiş, kullanıcıların iş süreçlerini dijita
 
 
 
-## ✨ Özellikler
+## Özellikler
 
 * **Görev Yönetimi:** Günlük görevlerinizi ekleyin, düzenleyin ve tamamlandığında işaretleyin.
 * **Kategori Filtreleme:** İşlerinizi türlerine göre gruplandırın.
 * **Modern Arayüz:** Kullanıcı dostu, sade ve hızlı UI/UX deneyimi.
 * **Veri Modelleri:** Tip güvenli (Type-safe) Dart modelleri ile tutarlı veri yapısı.
 
-## 🛠 Kullanılan Teknolojiler & Kütüphaneler
+## Kullanılan Teknolojiler & Kütüphaneler
 
 * **Framework:** [Flutter](https://flutter.dev/)
 * **Dil:** [Dart](https://dart.dev/)
@@ -19,7 +19,7 @@ Workify, Flutter ile geliştirilmiş, kullanıcıların iş süreçlerini dijita
 * **Durum Yönetimi (State Management):** (Provider/Bloc/GetX hangisini kullanıyorsan buraya ekle)
 * **İkonlar:** Cupertino & Material Icons
 
-## 🛠️ 1. Bilgisayar Kurulum Gereksinimleri (Ön Hazırlık)
+## 1. Bilgisayar Kurulum Gereksinimleri (Ön Hazırlık)
 
 İlk önce projeyi git clone ile çekelim:
 ```bash
@@ -59,32 +59,32 @@ Projenin ana dizinindeyken bu komutu çalıştırarak veri tabanınızı seçin
 flutterfire configure
 ```
 
-## 📂 Proje Yapısı
+## Proje Yapısı
 
 Proje, temiz kod (clean code) prensiplerine uygun olarak şu şekilde organize edilmiştir:
 
 ```text
-## 📱 Uygulama Modülleri ve Ekran Yapısı
+## Uygulama Modülleri ve Ekran Yapısı
 
 Proje, kullanıcı rollerine göre özelleştirilmiş dinamik bir yapıya sahiptir:
 
-### 🔐 Yetkilendirme ve Ana Ekranlar (`main_screen`)
+### Yetkilendirme ve Ana Ekranlar (`main_screen`)
 * **Multi-Role Login:** Kullanıcı tipine (Root, Admin, Worker) göre otomatik yönlendirme.
 * **Root Panel:** Sistem genelindeki tüm işletmelerin yönetildiği üst düzey yetkili ekranı.
 * **Admin Dashboard:** Şube ve çalışan istatistiklerinin, günlük raporların izlendiği yönetici paneli.
 * **Worker Panel:** Personelin kendi görevlerini ve giriş-çıkışlarını takip ettiği kullanıcı ekranı.
 
-### 🏢 Yönetim ve Düzenleme (`edit`)
+### Yönetim ve Düzenleme (`edit`)
 * **Şube Yönetimi:** Yeni şube tanımlama ve mevcut şube bilgilerini güncelleme.
 * **Personel Yönetimi:** Çalışan ekleme, yetkilendirme ve profil düzenleme modülleri.
 * **İşletme Ayarları:** Kurumsal bilgilerin ve genel sistem konfigürasyonlarının yönetimi.
 
-### 🔍 Detay ve İzleme (`detail`)
+### Detay ve İzleme (`detail`)
 * **Admin Log Sistemi:** Sistem üzerinde yapılan tüm kritik işlemlerin kronolojik olarak takibi.
 * **QR Scanner:** İşçi giriş-çıkışları veya varlık takibi için entegre QR kod okuma modülü.
 * **Gelişmiş Detay Sayfaları:** Şube ve çalışan bazlı özelleştirilmiş veri görünümü.
 
-## 📂 Klasör Yapısı
+## Klasör Yapısı
 
 ```text
 lib/
