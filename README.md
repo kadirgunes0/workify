@@ -51,6 +51,12 @@ Root oluşturma amacımız uygulama açıldığında boş bir database gelicek k
 4. Koleksiyon oluştuktan sonra döküman ekleme ekranı gelecektir. Document ID alanını boş bırakabilir (Auto-id) veya el ile bir benzersiz ID verebilirsiniz.
 5. Dokümanın içerisine sağ taraftaki + Add field butonunu kullanarak tam olarak aşağıdaki 3 String alanı ekleyin:
 
+```bash
+username: "opsiyonel"
+password: "opsiyonel"
+role: "root"
+```
+
 
 Firebase kurulumu adım adım:
 ```bash
