@@ -1,4 +1,4 @@
-# 🚀 Workify - İş ve Görev Yönetim Uygulaması
+# Workify - İş ve Görev Yönetim Uygulaması
 
 Workify, Flutter ile geliştirilmiş, kullanıcıların iş süreçlerini dijital ortamda organize etmelerine, görev takibi yapmalarına ve verimliliklerini artırmalarına olanak tanıyan modern bir mobil uygulamadır.
 
