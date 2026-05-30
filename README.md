@@ -19,6 +19,46 @@ Workify, Flutter ile geliştirilmiş, kullanıcıların iş süreçlerini dijita
 * **Durum Yönetimi (State Management):** (Provider/Bloc/GetX hangisini kullanıyorsan buraya ekle)
 * **İkonlar:** Cupertino & Material Icons
 
+## 🛠️ 1. Bilgisayar Kurulum Gereksinimleri (Ön Hazırlık)
+
+İlk önce projeyi git clone ile çekelim:
+```bash
+git clone [https://github.com/kadirgunes0/workify.git](https://github.com/kadirgunes0/workify.git)
+cd workify
+```
+
+Projeyi bilgisayarınızda derleyebilmek için aşağıdaki yerel geliştirme araçlarının yüklü olması gerekir:
+
+1. **Flutter SDK:** Bilgisayarınızda Flutter yüklü değilse [Flutter Resmi Sitesinden](https://docs.flutter.dev/get-started/install) işletim sisteminize uygun stabil sürümü indirin ve `PATH` ortam değişkenlerine ekleyin.
+2. **Java Development Kit (JDK):** Android derlemesi için bilgisayarınızda **JDK 11 veya JDK 17** yüklü olmalıdır.
+3. **Android Studio / VS Code:** Kodları çalıştırmak ve sanal cihaz (Emulator) ayağa kaldırmak için dilediğiniz editörü kurun. Android Studio kullanıyorsanız `Android SDK Command-line Tools` bileşeninin yüklü olduğundan emin olun.
+
+Komut satırından kurulumların doğruluğunu test edin:
+```bash
+flutter doctor
+```
+Paketleri yüklemek için:
+```bash
+flutter pub clean
+flutter pub get
+```
+Firebase kurulumu adım adım:
+```bash
+npm install -g firebase-tools
+```
+Firebase hesabınıza terminalden giriş yapın
+```bash
+firebase login
+```
+Projeyi firebase'e bağlamak için flutterfire_cli aktifleştirin
+```bash
+dart pub global activate flutterfire_cli
+```
+Projenin ana dizinindeyken bu komutu çalıştırarak veri tabanınızı seçin
+```bash
+flutterfire configure
+```
+
 ## 📂 Proje Yapısı
 
 Proje, temiz kod (clean code) prensiplerine uygun olarak şu şekilde organize edilmiştir:
