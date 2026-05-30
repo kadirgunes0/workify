@@ -42,6 +42,16 @@ Paketleri yüklemek için:
 flutter pub clean
 flutter pub get
 ```
+### Adım Adım Root Dokümanı Oluşturma:
+Root oluşturma amacımız uygulama açıldığında boş bir database gelicek karşınıza bundan sonrasını sadece bir "root" kullanıcısı ekleyerek halledebilirsiniz.
+
+1)Firebase Konsoluna gidin ve projenizin içinden Cloud Firestore veri tabanını açın.
+2)Start collection butonuna tıklayın ve koleksiyon adı (Collection ID) olarak tam olarak şunu yazın:
+3)Collection ID: admins
+4)Koleksiyon oluştuktan sonra döküman ekleme ekranı gelecektir. Document ID alanını boş bırakabilir (Auto-id) veya el ile bir benzersiz ID verebilirsiniz.
+5)Dokümanın içerisine sağ taraftaki + Add field butonunu kullanarak tam olarak aşağıdaki 3 String alanı ekleyin:
+
+
 Firebase kurulumu adım adım:
 ```bash
 npm install -g firebase-tools
