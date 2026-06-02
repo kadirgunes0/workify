@@ -21,6 +21,7 @@ class WorkerDetailScreen extends StatefulWidget {
 class _WorkerDetailScreenState extends State<WorkerDetailScreen> {
   // SİLME FONKSİYONU
   Future<void> _deleteWorker(String workerName) async {
+    // ignore: unused_local_variable
     final theme = Theme.of(context);
     bool? confirm = await showDialog<bool>(
       context: context,

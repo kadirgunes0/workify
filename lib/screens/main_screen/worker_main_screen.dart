@@ -54,8 +54,11 @@ class _UserMainScreenState extends State<UserMainScreen> {
         if (permission == LocationPermission.denied) return null;
       }
       return await Geolocator.getCurrentPosition(
+        // ignore: deprecated_member_use
         desiredAccuracy: LocationAccuracy.medium,
+        // ignore: deprecated_member_use
         forceAndroidLocationManager: true,
+        // ignore: deprecated_member_use
         timeLimit: const Duration(seconds: 5),
       );
     } catch (e) {

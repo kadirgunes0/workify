@@ -4,8 +4,11 @@ import 'firebase_options.dart';
 import 'screens/main_screen/login.dart';
 
 void main() async {
+  // Flutter Engine baglayicilarini yerel isletim sistemiyle senkronize eder
   WidgetsFlutterBinding.ensureInitialized();
+  // NoSQL Cloud Firestore bulut veri tabani baglantisini asenkron baslatir
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Uygulama kök widget'ini calistirir
   runApp(const MyApp());
 }
 
@@ -20,6 +23,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Workify',
+      // Isletim sisteminin temasini (dark/light) otomatik okur
       themeMode: ThemeMode.system,
 
       //light theme
@@ -36,7 +40,7 @@ class MyApp extends StatelessWidget {
           onSurface: Colors.black87,
         ),
 
-        // Butonların üzerindeki yazı sorununu burada çözüyoruz
+        // Butonların üzerindeki yazı
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: customDarkBlue,
@@ -95,7 +99,7 @@ class MyApp extends StatelessWidget {
             ),
           ),
         ),
-        //dark theme de tıklayınca kararma sorununu düzeltme
+        //dark themede buton basıldığında ufak bir gölge
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFF1E293B),

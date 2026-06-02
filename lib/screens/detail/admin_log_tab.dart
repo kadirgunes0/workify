@@ -2,8 +2,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:excel/excel.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:excel/excel.dart' as exc;
 import 'package:share_plus/share_plus.dart';
 
 class AdminLogTab extends StatefulWidget {
@@ -83,16 +83,19 @@ class _AdminLogTabState extends State<AdminLogTab> {
   }
 
   bool _isOnTime(DateTime time, String rawType, String branchName) {
+    // Giriş/Çıkış saatini toplam dakika cinsine çeviriyoruz (Örn: 08:30 -> 8*60 + 30 = 510)
     int currentMins = time.hour * 60 + time.minute;
-    String type = rawType.toLowerCase().trim();
-    bool isEntry = type.contains('gir');
-    bool isExit = type.contains('çık') || type.contains('cik');
+    String type = rawType.toUpperCase().trim();
+    bool isEntry = type.contains('GİR') || type.contains('GIR');
+    bool isExit = type.contains('ÇIK') || type.contains('CIK');
 
+    // Varsayılan Fabrika Ayarları (Şubeden veri gelmezse yedek plan)
     int startMins = 510; // 08:30
     int endMins = 1050; // 17:30
     int lunchStartMins = 750; // 12:30
     int lunchEndMins = 780; // 13:00
 
+    // Veri tabanından şubeye özel mesai saatlerini çekip dakikaya parse ediyoruz
     if (_businessData['branches'] != null &&
         _businessData['branches'][branchName] != null) {
       var b = _businessData['branches'][branchName];
@@ -102,20 +105,34 @@ class _AdminLogTabState extends State<AdminLogTab> {
       lunchEndMins = _parseTime(b['lunch_end'], lunchEndMins);
     }
 
+    // =================================================================
+    // KURAL MANTIĞI: İSTEDİĞİN TÜM TOLERANS LİMİTLERİ BURADA İŞLENİYOR
+    // =================================================================
     if (isEntry) {
+      // Eğer işlem öğle saatinden önceyse (Sabah İlk Giriş Mesaisi)
       if (time.hour < (lunchStartMins ~/ 60)) {
+        // KURAL: Maksimum 15 dk geç gelebilir (+15), maksimum 30 dk erken gelebilir (-30)
         return currentMins >= (startMins - 30) &&
             currentMins <= (startMins + 15);
       } else {
-        return currentMins <= (lunchEndMins + 15);
+        // Eğer işlem öğle saatinden sonraysa (Öğle Arası Dönüşü - İkinci Giriş)
+        // KURAL: Öğle arası bitiş saatinden maksimum 15 dk geç kalabilir (+15)
+        return currentMins >= lunchEndMins &&
+            currentMins <= (lunchEndMins + 15);
       }
     } else if (isExit) {
-      if (time.hour < 15)
+      // Eğer işlem öğleden önce veya tam öğle arasında çıkışsa (Öğle Arasına Çıkış)
+      if (time.hour <= (lunchEndMins ~/ 60)) {
+        // KURAL: Öğle arası başlangıç saati tam olmalı (Erken çıkamaz, geç çıkarsa tolerans yok)
         return currentMins >= lunchStartMins;
-      else
-        return currentMins >= endMins;
+      } else {
+        // Akşam Normal Mesai Bitiş Çıkışı
+        // KURAL: Maksimum 30 dk geç çıkabilir (+30). Erken çıkış kesinlikle YASAK.
+        return currentMins >= endMins && currentMins <= (endMins + 30);
+      }
     }
-    return true;
+
+    return true; // Eğer log tipi belirsizse hata fırlatmaması için güvenli dönüş
   }
 
   int _parseTime(String? timeStr, int defaultMinutes) {
@@ -125,8 +142,140 @@ class _AdminLogTabState extends State<AdminLogTab> {
   }
 
   Future<void> _exportToExcel(List<QueryDocumentSnapshot> logs) async {
-    // Excel export mantığı (Hücre bazlı tasarımın devamı...)
-    // (Önceki mesajdaki export kodunu buraya dahil edebilirsin)
+    if (_businessData.isEmpty) return;
+
+    try {
+      var excel = exc.Excel.createExcel();
+      String sheetName = "Workify_Mesai_Raporu";
+      excel.rename(excel.getDefaultSheet()!, sheetName);
+      exc.Sheet sheetObject = excel[sheetName];
+
+      // Kurumsal Hücre Stilleri
+      exc.CellStyle headerStyle = exc.CellStyle(
+        backgroundColorHex: exc.ExcelColor.fromHexString('#1A237E'),
+        fontFamily: exc.getFontFamily(exc.FontFamily.Calibri),
+        fontColorHex: exc.ExcelColor.fromHexString('#FFFFFF'),
+        horizontalAlign: exc.HorizontalAlign.Center,
+        bold: true,
+      );
+
+      exc.CellStyle rowStyle = exc.CellStyle(
+        fontFamily: exc.getFontFamily(exc.FontFamily.Calibri),
+        horizontalAlign: exc.HorizontalAlign.Left,
+      );
+
+      exc.CellStyle lateRowStyle = exc.CellStyle(
+        fontFamily: exc.getFontFamily(exc.FontFamily.Calibri),
+        horizontalAlign: exc.HorizontalAlign.Left,
+        fontColorHex: exc.ExcelColor.fromHexString(
+          '#FF5252',
+        ), // Gecikmeler için kırmızı
+      );
+
+      // İstediğin tüm sütun başlıklarını matrise ekliyoruz
+      List<String> headers = [
+        "Personel Adı Soyadı",
+        "Kullanıcı Adı (ID)",
+        "İşlem Yapılan Şube",
+        "İşlem Türü",
+        "Tarih / Saat",
+        "Zaman Durumu",
+        "Ölçülen Mesafe",
+        "İşlem Yapılan Cihaz", // İstediğin Cihaz sütunu eklendi
+      ];
+
+      for (int col = 0; col < headers.length; col++) {
+        var cell = sheetObject.cell(
+          exc.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: 0),
+        );
+        cell.value = exc.TextCellValue(headers[col]);
+        cell.cellStyle = headerStyle;
+      }
+
+      // Tarih filtreli olarak gelen canlı döküman listesini satır satır Excel'e işleme
+      for (int row = 0; row < logs.length; row++) {
+        var logData = logs[row].data() as Map<String, dynamic>;
+
+        DateTime dt =
+            (logData['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now();
+        String formattedDateTime = DateFormat('dd.MM.yyyy HH:mm').format(dt);
+
+        // Önbellekten isim/soyisim ve kullanıcı adı eşleştirmesi
+        String searchKey =
+            logData['worker_id']?.toString() ??
+            logData['username']?.toString() ??
+            "";
+        String staffName = "Bilinmeyen Personel";
+        String staffUsername = searchKey;
+
+        if (searchKey.isNotEmpty && _workerCache.containsKey(searchKey)) {
+          staffName = _workerCache[searchKey]!['name'] ?? "Bilinmeyen Personel";
+          staffUsername = _workerCache[searchKey]!['username'] ?? searchKey;
+        }
+
+        // Şube mesai tolerans kontrolü
+        bool isOnTime = _isOnTime(
+          dt,
+          logData['type'] ?? "",
+          logData['branch_name'] ?? "",
+        );
+        String timingLabel = isOnTime ? "Geldi" : "Gelmedi";
+
+        // Satır verilerini oluşturma (İstediğin cihaz bilgisi logData['device_name'] üzerinden ekleniyor)
+        List<String> rowData = [
+          staffName,
+          staffUsername,
+          logData['branch_name'] ?? "",
+          logData['type'] ?? "",
+          formattedDateTime,
+          timingLabel,
+          logData['dist'] ?? "0m",
+          logData['device_name'] ??
+              "Kayıtsız Cihaz", // İstediğin cihaz verisi buraya basılıyor
+        ];
+
+        for (int col = 0; col < rowData.length; col++) {
+          var cell = sheetObject.cell(
+            exc.CellIndex.indexByColumnRow(columnIndex: col, rowIndex: row + 1),
+          );
+          cell.value = exc.TextCellValue(rowData[col]);
+          cell.cellStyle = isOnTime ? rowStyle : lateRowStyle;
+        }
+      }
+
+      List<int>? fileBytes = excel.save();
+      if (fileBytes == null) throw "Excel verisi derlenirken hata oluştu.";
+
+      // Dosyayı diske yazma süreci
+      Directory directory = await getApplicationDocumentsDirectory();
+      String filename =
+          "workify_rapor_${DateTime.now().millisecondsSinceEpoch}.xlsx";
+      String filePath = "${directory.path}/$filename";
+
+      File file = File(filePath);
+      await file.writeAsBytes(fileBytes);
+
+      // --- SİHİRLİ DOKUNUŞ: PAYLAŞ SEÇENEĞİ EKRANINI (SHARE SHEET) GETİRME ---
+      if (Platform.isAndroid || Platform.isIOS) {
+        // share_plus kütüphanesini tetikleyerek yerel paylaşım panelini açıyoruz
+        // ignore: deprecated_member_use
+        await Share.shareXFiles(
+          [XFile(filePath)],
+          text: 'Workify Sisteminden İhracat Edilen Personel Mesai Raporu',
+          subject: 'Workify Mesai Raporu (.xlsx)',
+        );
+      }
+    } catch (e) {
+      debugPrint("Excel dışa aktarma ve paylaşma hatası: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Rapor paylaşılamadı: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    }
   }
 
   void _showLogDetails(

@@ -26,6 +26,7 @@ class _LoginPageState extends State<LoginPage>
     _tabController = TabController(length: 2, vsync: this);
   }
 
+  // Yerel donanim katmanindan benzersiz donanim ID'sini ceken fonksiyon
   Future<String?> _getDeviceId() async {
     var deviceInfo = DeviceInfoPlugin();
     try {
@@ -43,6 +44,7 @@ class _LoginPageState extends State<LoginPage>
   }
 
   Future<void> _handleLogin() async {
+    // Veri Ön Isleme ve Temizleme (Data Sanitization)
     final String username = _userController.text.trim().toLowerCase();
     final String password = _passController.text.trim();
 
@@ -55,6 +57,7 @@ class _LoginPageState extends State<LoginPage>
 
     try {
       if (_tabController.index == 0) {
+        // role kontrolü ve yönetici giriş kontrolü
         QuerySnapshot adminQuery = await FirebaseFirestore.instance
             .collection('admins')
             .where('username', isEqualTo: username)
@@ -91,6 +94,7 @@ class _LoginPageState extends State<LoginPage>
           _showError("Yönetici bilgileri hatalı.");
         }
       } else {
+        // workers ve device_id kontrolü
         QuerySnapshot staffQuery = await FirebaseFirestore.instance
             .collection('workers')
             .where('username', isEqualTo: username)
@@ -111,22 +115,22 @@ class _LoginPageState extends State<LoginPage>
           }
 
           String? registeredDeviceId = data['device_id'];
-
+          // Hesap Paylasimini Önleyen Kritik Eslesme Algoritmasi
           if (registeredDeviceId == null || registeredDeviceId.isEmpty) {
+            // worker kullanici olusturuldugunda "device_id" bos kalir ilk giris yapilan cihazin "id"si alinir
             await FirebaseFirestore.instance
                 .collection('workers')
                 .doc(workerDocId)
                 .update({'device_id': currentDeviceId});
             data['device_id'] = currentDeviceId; // Lokal veriyi de besleyelim
           } else if (registeredDeviceId != currentDeviceId) {
+            // Farkli cihazdan erisim engeller
             _showError("Bu hesap başka bir cihaza kayıtlı.");
             setState(() => _isLoading = false);
             return;
           }
 
           String firmaKey = data['business_id'] ?? "";
-
-          // Eşleşme hatasını durdurmak için transfer edilecek Map'in içindeki username alanını da temizliyoruz
           data['username'] = username;
 
           if (!mounted) return;
@@ -156,6 +160,7 @@ class _LoginPageState extends State<LoginPage>
 
   @override
   Widget build(BuildContext context) {
+    // Scaffold, TabBar ve Giris Formu Yapisi
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
